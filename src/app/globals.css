@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #07070F;
+  --color-background-card: #0D0D1A;
+  --color-background-elevated: #12121F;
+  --color-amber: #F5A623;
+  --color-amber-hover: #D4911E;
+  --color-indigo: #6366F1;
+  --color-indigo-hover: #5558E3;
+  --color-success: #10B981;
+  --color-danger: #EF4444;
+  --color-text-primary: #F0EFF8;
+  --color-text-muted: rgba(255, 255, 255, 0.5);
+  --color-border: rgba(255, 255, 255, 0.07);
+  --font-heading: var(--font-syne);
+  --font-body: var(--font-dm-sans);
+  --font-mono: var(--font-dm-mono);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+body {
+  background: #07070F;
+  color: #F0EFF8;
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading), system-ui, sans-serif;
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-mono), monospace;
+}
+
+::selection {
+  background: rgba(245, 166, 35, 0.3);
+  color: #F0EFF8;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
