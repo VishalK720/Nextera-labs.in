@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Trophy,
@@ -12,7 +12,6 @@ import {
   BookOpen,
   Rocket,
   Radio,
-  Calendar,
   MessageSquare,
   Presentation,
   Award,
@@ -20,8 +19,7 @@ import {
 import { Card, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
-
-const CURRENT_USER = "Arjun Mehta";
+import { useAuth } from "@/lib/auth-context";
 
 const pointsBreakdown = [
   { label: "Lesson complete", points: "+10", icon: BookOpen, color: "#6366F1" },
@@ -42,23 +40,15 @@ const avatarColors = [
   "#E11D48", "#7C3AED", "#06B6D4", "#D946EF", "#84CC16",
 ];
 
-const students = [
-  { name: "Riya Sharma", city: "Mumbai", week: 6, projects: 4, streak: 21, points: 1450 },
-  { name: "Karthik Nair", city: "Bangalore", week: 6, projects: 3, streak: 18, points: 1320 },
-  { name: "Arjun Mehta", city: "Delhi", week: 6, projects: 3, streak: 14, points: 1180 },
-  { name: "Sneha Reddy", city: "Hyderabad", week: 5, projects: 3, streak: 12, points: 1050 },
-  { name: "Aditya Patel", city: "Ahmedabad", week: 5, projects: 2, streak: 16, points: 980 },
-  { name: "Priya Gupta", city: "Jaipur", week: 5, projects: 2, streak: 10, points: 920 },
-  { name: "Rohan Das", city: "Kolkata", week: 4, projects: 2, streak: 9, points: 870 },
-  { name: "Ananya Iyer", city: "Chennai", week: 4, projects: 2, streak: 7, points: 810 },
-  { name: "Vikram Singh", city: "Lucknow", week: 4, projects: 1, streak: 11, points: 760 },
-  { name: "Meera Joshi", city: "Pune", week: 4, projects: 1, streak: 8, points: 710 },
-  { name: "Siddharth Kumar", city: "Chandigarh", week: 3, projects: 1, streak: 6, points: 650 },
-  { name: "Kavya Menon", city: "Kochi", week: 3, projects: 1, streak: 5, points: 590 },
-  { name: "Rahul Verma", city: "Indore", week: 3, projects: 1, streak: 4, points: 530 },
-  { name: "Ishaan Bhat", city: "Mangalore", week: 2, projects: 0, streak: 3, points: 420 },
-  { name: "Tanya Kapoor", city: "Noida", week: 2, projects: 0, streak: 2, points: 350 },
-];
+interface StudentRow {
+  id: string;
+  name: string;
+  city: string;
+  week: number;
+  projects: number;
+  streak: number;
+  points: number;
+}
 
 function getMedal(rank: number) {
   if (rank === 1) return "\u{1F947}";
@@ -68,7 +58,30 @@ function getMedal(rank: number) {
 }
 
 export default function LeaderboardPage() {
+  const { user, profile } = useAuth();
   const [expanded, setExpanded] = useState(false);
+  const [students, setStudents] = useState<StudentRow[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile?.cohort_id) return;
+
+    fetch(`/api/dashboard/leaderboard?cohortId=${profile.cohort_id}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.students) setStudents(d.students);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [profile?.cohort_id]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="h-8 w-8 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -166,11 +179,11 @@ export default function LeaderboardPage() {
               {students.map((student, index) => {
                 const rank = index + 1;
                 const medal = getMedal(rank);
-                const isCurrentUser = student.name === CURRENT_USER;
+                const isCurrentUser = student.id === user?.id;
 
                 return (
                   <motion.tr
-                    key={student.name}
+                    key={student.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.03 }}
@@ -260,6 +273,12 @@ export default function LeaderboardPage() {
             </tbody>
           </table>
         </div>
+
+        {students.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-text-muted text-sm">No students in leaderboard yet.</p>
+          </div>
+        )}
       </Card>
     </div>
   );

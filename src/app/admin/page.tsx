@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Users,
@@ -11,40 +12,82 @@ import {
   XCircle,
   Eye,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatRelativeDate, formatPrice } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { Avatar } from "@/components/ui/Avatar";
 
-const stats = [
-  { label: "Total Applications", value: "142", change: "+12 this week", icon: FileText, color: "text-indigo" },
-  { label: "Accepted", value: "25", change: "Cohort full", icon: CheckCircle2, color: "text-success" },
-  { label: "Enrolled & Paid", value: "23", change: "₹11,477 collected", icon: IndianRupee, color: "text-amber" },
-  { label: "Active Students", value: "23", change: "2 at risk", icon: Users, color: "text-indigo" },
-];
-
-const recentApplications = [
-  { name: "Ananya Sen", city: "Kolkata", class: "11", status: "pending", time: "2h ago" },
-  { name: "Rohan Khanna", city: "Chandigarh", class: "12", status: "accepted", time: "5h ago" },
-  { name: "Isha Verma", city: "Lucknow", class: "10", status: "rejected", time: "1d ago" },
-  { name: "Aditya Raj", city: "Patna", class: "11", status: "pending", time: "1d ago" },
-  { name: "Meera Nair", city: "Kochi", class: "12", status: "accepted", time: "2d ago" },
-];
+interface AdminData {
+  stats: {
+    totalApplications: number;
+    accepted: number;
+    enrolledPaid: number;
+    totalRevenue: number;
+    activeStudents: number;
+  };
+  recentApplications: {
+    id: string;
+    name: string;
+    city: string;
+    class: string;
+    status: string;
+    time: string;
+  }[];
+  atRiskStudents: {
+    id: string;
+    name: string;
+    streak: number;
+    lastActive: string;
+    week: number;
+  }[];
+  pendingCount: number;
+}
 
 const statusStyles: Record<string, string> = {
   pending: "bg-amber/15 text-amber",
   accepted: "bg-success/15 text-success",
   rejected: "bg-danger/15 text-danger",
+  enrolled: "bg-success/15 text-success",
+  waitlisted: "bg-indigo/15 text-indigo",
 };
 
 const avatarColors = ["#F5A623", "#6366F1", "#10B981", "#EF4444", "#8B5CF6"];
 
-const atRiskStudents = [
-  { name: "Ishaan Bhat", streak: 0, lastActive: "5 days ago", week: 2 },
-  { name: "Tanya Kapoor", streak: 0, lastActive: "4 days ago", week: 2 },
-];
-
 export default function AdminOverview() {
+  const [data, setData] = useState<AdminData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/dashboard/admin")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.error) setData(d);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="h-8 w-8 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  const stats = data
+    ? [
+        { label: "Total Applications", value: `${data.stats.totalApplications}`, icon: FileText, color: "text-indigo" },
+        { label: "Accepted", value: `${data.stats.accepted}`, icon: CheckCircle2, color: "text-success" },
+        { label: "Enrolled & Paid", value: `${data.stats.enrolledPaid}`, change: formatPrice(data.stats.totalRevenue * 100), icon: IndianRupee, color: "text-amber" },
+        { label: "Active Students", value: `${data.stats.activeStudents}`, icon: Users, color: "text-indigo" },
+      ]
+    : [];
+
+  const recentApplications = data?.recentApplications ?? [];
+  const atRiskStudents = data?.atRiskStudents ?? [];
+  const pendingCount = data?.pendingCount ?? 0;
+
   return (
     <div className="space-y-6 max-w-[1200px] mx-auto">
       {/* Stats */}
@@ -65,7 +108,9 @@ export default function AdminOverview() {
                 {stat.value}
               </p>
               <p className="text-xs text-text-muted mt-0.5">{stat.label}</p>
-              <p className="text-[11px] text-text-muted mt-1">{stat.change}</p>
+              {"change" in stat && stat.change && (
+                <p className="text-[11px] text-text-muted mt-1">{stat.change} collected</p>
+              )}
             </Card>
           </motion.div>
         ))}
@@ -84,12 +129,12 @@ export default function AdminOverview() {
               <h3 className="font-heading font-bold text-text-primary">
                 Recent Applications
               </h3>
-              <Badge variant="default">{recentApplications.length} new</Badge>
+              <Badge variant="default">{pendingCount} pending</Badge>
             </div>
             <div className="mt-4">
               {recentApplications.map((app, i) => (
                 <div
-                  key={app.name}
+                  key={app.id}
                   className={cn(
                     "flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02] transition-colors",
                     i < recentApplications.length - 1 && "border-b border-border"
@@ -111,19 +156,25 @@ export default function AdminOverview() {
                   <span
                     className={cn(
                       "text-[11px] font-semibold px-2 py-1 rounded-full capitalize",
-                      statusStyles[app.status]
+                      statusStyles[app.status] ?? "bg-white/10 text-text-muted"
                     )}
                   >
                     {app.status}
                   </span>
                   <span className="text-xs text-text-muted hidden sm:block">
-                    {app.time}
+                    {formatRelativeDate(app.time)}
                   </span>
                   <button className="p-1.5 rounded-md text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors">
                     <Eye className="h-4 w-4" />
                   </button>
                 </div>
               ))}
+
+              {recentApplications.length === 0 && (
+                <div className="px-5 py-6 text-center">
+                  <p className="text-text-muted text-sm">No applications yet.</p>
+                </div>
+              )}
             </div>
           </Card>
         </motion.div>
@@ -142,9 +193,9 @@ export default function AdminOverview() {
                 At-Risk Students
               </h3>
               <div className="space-y-3">
-                {atRiskStudents.map((s) => (
+                {atRiskStudents.length > 0 ? atRiskStudents.map((s) => (
                   <div
-                    key={s.name}
+                    key={s.id}
                     className="flex items-center gap-3 p-3 rounded-lg bg-danger/5 border border-danger/10"
                   >
                     <div className="flex-1 min-w-0">
@@ -152,12 +203,14 @@ export default function AdminOverview() {
                         {s.name}
                       </p>
                       <p className="text-xs text-text-muted">
-                        Week {s.week} · Last active {s.lastActive}
+                        Week {s.week} · Last active {formatRelativeDate(s.lastActive)}
                       </p>
                     </div>
-                    <Badge variant="danger">0 streak</Badge>
+                    <Badge variant="danger">{s.streak} streak</Badge>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-sm text-text-muted">No at-risk students. Great!</p>
+                )}
               </div>
             </Card>
           </motion.div>
@@ -175,9 +228,9 @@ export default function AdminOverview() {
               </h3>
               <div className="space-y-2">
                 {[
-                  { label: "Review pending applications", count: "4 pending" },
-                  { label: "Schedule next live session", count: "Week 5" },
-                  { label: "Send cohort notification", count: "23 students" },
+                  { label: "Review pending applications", count: `${pendingCount} pending` },
+                  { label: "Schedule next live session", count: "—" },
+                  { label: "Send cohort notification", count: `${data?.stats.activeStudents ?? 0} students` },
                 ].map((action) => (
                   <button
                     key={action.label}

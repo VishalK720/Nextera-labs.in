@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Rocket, Plus, X } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import { showToast } from "@/components/ui/Toast";
 
 const weekOptions = [
   { value: "1", label: "Week 1 — Foundations" },
@@ -23,6 +25,7 @@ const suggestedTech = [
 
 export default function NewProjectPage() {
   const router = useRouter();
+  const { user, profile } = useAuth();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [week, setWeek] = useState("");
@@ -45,11 +48,36 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !description.trim() || !week) return;
+    if (!name.trim() || !description.trim() || !week || !user?.id) return;
     setSubmitting(true);
-    // Simulate API call
-    await new Promise((r) => setTimeout(r, 1000));
-    router.push("/dashboard/projects");
+
+    try {
+      const res = await fetch("/api/dashboard/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: user.id,
+          cohortId: profile?.cohort_id,
+          title: name.trim(),
+          description: description.trim(),
+          techStack: techTags,
+          weekNumber: week,
+          githubUrl: repoUrl || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`Project created! +${data.pointsAwarded ?? 0} points`, "success");
+        router.push("/dashboard/projects");
+      } else {
+        showToast(data.error || "Failed to create project", "error");
+      }
+    } catch {
+      showToast("Failed to create project", "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const isValid = name.trim() && description.trim() && week;

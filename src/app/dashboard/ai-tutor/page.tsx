@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Bot,
@@ -12,6 +12,8 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
+import ReactMarkdown from "react-markdown";
 
 interface Message {
   id: string;
@@ -28,6 +30,7 @@ const quickPrompts = [
 ];
 
 export default function AITutorPage() {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "welcome",
@@ -46,8 +49,8 @@ export default function AITutorPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const sendMessage = async (text: string) => {
-    if (!text.trim()) return;
+  const sendMessage = useCallback(async (text: string) => {
+    if (!text.trim() || isTyping) return;
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -56,22 +59,73 @@ export default function AITutorPage() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMsg: Message = {
-        id: `ai-${Date.now()}`,
-        role: "assistant",
-        content: getSimulatedResponse(text),
-        timestamp: new Date(),
-      };
-      setMessages((prev) => [...prev, aiMsg]);
+    try {
+      // Build messages for API (exclude welcome message)
+      const apiMessages = updatedMessages
+        .filter((m) => m.id !== "welcome")
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: apiMessages,
+          studentId: user?.id ?? undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Something went wrong" }));
+        throw new Error(err.error || "Failed to get response");
+      }
+
+      // Stream the response
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      const aiMsgId = `ai-${Date.now()}`;
+      let fullContent = "";
+
+      // Add empty AI message
+      setMessages((prev) => [
+        ...prev,
+        { id: aiMsgId, role: "assistant", content: "", timestamp: new Date() },
+      ]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullContent += chunk;
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === aiMsgId ? { ...m, content: fullContent } : m
+          )
+        );
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : "Failed to get response";
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `ai-error-${Date.now()}`,
+          role: "assistant",
+          content: `Sorry, I ran into an error: ${errorMsg}. Please try again!`,
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
-  };
+    }
+  }, [messages, isTyping, user?.id]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -104,7 +158,7 @@ export default function AITutorPage() {
             <h2 className="font-heading font-bold text-text-primary">AI Tutor</h2>
             <p className="text-xs text-text-muted flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-success" />
-              Always online
+              Powered by Claude
             </p>
           </div>
         </div>
@@ -143,14 +197,20 @@ export default function AITutorPage() {
                   : "bg-white/[0.04] border border-border text-text-primary rounded-bl-md"
               )}
             >
-              {msg.content}
+              {msg.role === "assistant" ? (
+                <div className="prose prose-invert prose-sm max-w-none [&>p]:mb-2 [&>ul]:mb-2 [&>ol]:mb-2 [&>pre]:bg-white/5 [&>pre]:rounded-lg [&>pre]:p-3">
+                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                </div>
+              ) : (
+                msg.content
+              )}
             </div>
           </motion.div>
         ))}
 
         {/* Typing indicator */}
         <AnimatePresence>
-          {isTyping && (
+          {isTyping && messages[messages.length - 1]?.role !== "assistant" && (
             <motion.div
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -214,22 +274,4 @@ export default function AITutorPage() {
       </div>
     </div>
   );
-}
-
-/* -------------------------------------------------------------------------- */
-/*  Simulated responses (mock)                                                 */
-/* -------------------------------------------------------------------------- */
-
-function getSimulatedResponse(input: string): string {
-  const lower = input.toLowerCase();
-  if (lower.includes("rag") || lower.includes("retrieval")) {
-    return "RAG (Retrieval-Augmented Generation) combines a retrieval system with an LLM. Instead of relying only on what the model was trained on, RAG fetches relevant documents from a knowledge base first, then uses them as context for generating answers. Think of it like an open-book exam — the AI can look things up before answering! This is super useful for building chatbots that need accurate, up-to-date information.";
-  }
-  if (lower.includes("debug") || lower.includes("error")) {
-    return "I'd be happy to help debug! Please share your code and the error message you're seeing. Some tips while you prepare:\n\n1. Check for typos in variable names\n2. Make sure all imports are correct\n3. Look at the error stack trace — it usually points to the exact line\n4. Try adding console.log statements to trace the data flow\n\nPaste your code and I'll take a closer look!";
-  }
-  if (lower.includes("project") || lower.includes("idea")) {
-    return "Here are some AI project ideas perfect for your level:\n\n1. **AI Study Buddy** — A chatbot that quizzes you on topics using spaced repetition\n2. **Smart Resume Builder** — Takes your info and generates a polished resume\n3. **Mood Journal** — Analyzes journal entries and tracks emotional patterns\n4. **Recipe Generator** — Suggests recipes based on ingredients you have\n5. **Code Explainer** — Paste any code snippet and get a plain-English explanation\n\nWhich one interests you? I can help you plan the architecture!";
-  }
-  return "That's a great question! Let me break it down for you. The key concepts here involve understanding how different pieces connect together. Would you like me to go deeper into any specific aspect, or shall I provide a code example to illustrate?";
 }

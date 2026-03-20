@@ -109,6 +109,8 @@ export interface Profile {
   last_active_at: string | null;
   total_points: number;
   cohort_rank: number | null;
+  current_week: number | null;
+  current_project: string | null;
   is_active: boolean;
   notes_by_admin: string | null;
   created_at: string;

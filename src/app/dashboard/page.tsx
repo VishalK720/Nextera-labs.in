@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -8,81 +9,14 @@ import {
   Flame,
   Clock,
   CheckCircle2,
-  Circle,
   ArrowUpRight,
   Video,
   Star,
-  MessageSquare,
   Code2,
   GitPullRequest,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-
-/* -------------------------------------------------------------------------- */
-/*                               Mock data                                    */
-/* -------------------------------------------------------------------------- */
-
-const studentName = "Arjun";
-const dayStreak = 7;
-
-const stats = [
-  { label: "Weeks Complete", value: "4/6", icon: BookOpen, color: "text-indigo" },
-  { label: "Projects Shipped", value: "2", icon: Rocket, color: "text-amber" },
-  { label: "Cohort Rank", value: "#3", icon: Trophy, color: "text-amber" },
-  { label: "Day Streak", value: `${dayStreak} 🔥`, icon: Flame, color: "text-danger" },
-];
-
-const weeks = [
-  { week: 1, title: "HTML & CSS Foundations", done: 8, total: 8 },
-  { week: 2, title: "JavaScript Essentials", done: 7, total: 8 },
-  { week: 3, title: "React & Component Thinking", done: 6, total: 8 },
-  { week: 4, title: "Backend with Node & Express", done: 3, total: 8 },
-  { week: 5, title: "Databases & Auth", done: 0, total: 8 },
-  { week: 6, title: "Capstone Project", done: 0, total: 8 },
-];
-
-const projects = [
-  {
-    name: "Personal Portfolio",
-    status: "Shipped",
-    statusColor: "bg-success/15 text-success",
-    tech: "Next.js · Tailwind",
-  },
-  {
-    name: "Task Tracker API",
-    status: "Shipped",
-    statusColor: "bg-success/15 text-success",
-    tech: "Express · MongoDB",
-  },
-  {
-    name: "AI Study Planner",
-    status: "In Progress",
-    statusColor: "bg-amber/15 text-amber",
-    tech: "React · OpenAI API",
-  },
-];
-
-const activityFeed = [
-  { icon: CheckCircle2, text: "Completed lesson: React Hooks Deep Dive", time: "2h ago", color: "text-success" },
-  { icon: GitPullRequest, text: "Submitted PR for Task Tracker API", time: "5h ago", color: "text-indigo" },
-  { icon: Star, text: "Earned badge: 7-Day Streak", time: "1d ago", color: "text-amber" },
-  { icon: MessageSquare, text: "Asked a question in AI Tutor", time: "1d ago", color: "text-indigo" },
-  { icon: Code2, text: "Started project: AI Study Planner", time: "2d ago", color: "text-amber" },
-];
-
-const leaderboard = [
-  { rank: 1, name: "Priya Sharma", points: 2480 },
-  { rank: 2, name: "Rahul Verma", points: 2350 },
-  { rank: 3, name: "Arjun Mehta", points: 2210, isYou: true },
-  { rank: 4, name: "Sneha Iyer", points: 2080 },
-  { rank: 5, name: "Dev Kapoor", points: 1960 },
-];
-
-const nextSession = {
-  title: "Week 4 Live: REST API Design",
-  date: "Sat, 22 Mar · 11:00 AM IST",
-  mentor: "Karan Taneja",
-};
+import { cn, formatRelativeDate } from "@/lib/utils";
+import { useAuth } from "@/lib/auth-context";
 
 /* -------------------------------------------------------------------------- */
 /*                            Helper components                               */
@@ -127,11 +61,94 @@ function Card({
   );
 }
 
+const activityIcons: Record<string, typeof CheckCircle2> = {
+  lesson_complete: CheckCircle2,
+  project_shipped: Rocket,
+  streak_7day: Star,
+  streak_14day: Star,
+  quiz_passed: Trophy,
+  bonus: Code2,
+  first_project: Rocket,
+  default: GitPullRequest,
+};
+
+const activityColors: Record<string, string> = {
+  lesson_complete: "text-success",
+  project_shipped: "text-amber",
+  streak_7day: "text-amber",
+  streak_14day: "text-amber",
+  quiz_passed: "text-indigo",
+  bonus: "text-amber",
+  first_project: "text-amber",
+  default: "text-indigo",
+};
+
+const statusColorMap: Record<string, string> = {
+  shipped: "bg-success/15 text-success",
+  featured: "bg-success/15 text-success",
+  in_progress: "bg-amber/15 text-amber",
+  idea: "bg-indigo/15 text-indigo",
+  demo_day_ready: "bg-amber/15 text-amber",
+};
+
 /* -------------------------------------------------------------------------- */
 /*                              Overview Page                                 */
 /* -------------------------------------------------------------------------- */
 
+interface DashboardData {
+  profile: { name: string; streak: number; rank: number | null; totalPoints: number; currentWeek: number };
+  completedLessons: number;
+  shippedProjects: number;
+  weeklyProgress: { week: number; title: string; done: number; total: number }[];
+  projects: { name: string; status: string; tech: string }[];
+  activity: { text: string; time: string; code: string; points: number }[];
+  leaderboard: { rank: number; name: string; points: number; isYou: boolean }[];
+  nextSession: { title: string; date: string; link: string } | null;
+}
+
 export default function DashboardOverview() {
+  const { user, profile } = useAuth();
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    fetch(`/api/dashboard/stats?studentId=${user.id}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.error) setData(d);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [user?.id]);
+
+  // Fallback to profile data if API hasn't loaded or no data
+  const studentName = data?.profile?.name ?? profile?.full_name ?? "Builder";
+  const dayStreak = data?.profile?.streak ?? profile?.streak_days ?? 0;
+  const currentWeek = data?.profile?.currentWeek ?? profile?.current_week ?? 1;
+
+  const stats = [
+    { label: "Weeks Complete", value: `${currentWeek}/6`, icon: BookOpen, color: "text-indigo" },
+    { label: "Projects Shipped", value: `${data?.shippedProjects ?? 0}`, icon: Rocket, color: "text-amber" },
+    { label: "Cohort Rank", value: data?.profile?.rank ? `#${data.profile.rank}` : "—", icon: Trophy, color: "text-amber" },
+    { label: "Day Streak", value: `${dayStreak} 🔥`, icon: Flame, color: "text-danger" },
+  ];
+
+  const weeks = data?.weeklyProgress ?? [];
+  const projects = data?.projects ?? [];
+  const activityFeed = data?.activity ?? [];
+  const leaderboard = data?.leaderboard ?? [];
+  const nextSession = data?.nextSession;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="h-8 w-8 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-[1200px] mx-auto">
       {/* ---- Welcome Banner ---- */}
@@ -143,7 +160,7 @@ export default function DashboardOverview() {
       >
         <div className="bg-background-card rounded-2xl p-6">
           <h2 className="font-heading text-xl font-bold text-text-primary">
-            Hey {studentName} 👋
+            Hey {studentName.split(" ")[0]} 👋
           </h2>
           <p className="text-text-muted mt-1 text-sm">
             You&apos;re on a <span className="text-amber font-semibold">{dayStreak}-day streak</span>. Keep building.
@@ -176,7 +193,7 @@ export default function DashboardOverview() {
               Weekly Progress
             </h3>
             <div className="space-y-4">
-              {weeks.map((w) => (
+              {weeks.length > 0 ? weeks.map((w) => (
                 <div key={w.week}>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-sm text-text-primary font-medium">
@@ -188,7 +205,9 @@ export default function DashboardOverview() {
                   </div>
                   <ProgressBar value={w.done} max={w.total} />
                 </div>
-              ))}
+              )) : (
+                <p className="text-sm text-text-muted">No curriculum data yet.</p>
+              )}
             </div>
           </Card>
 
@@ -198,7 +217,7 @@ export default function DashboardOverview() {
               My Projects
             </h3>
             <div className="space-y-3">
-              {projects.map((p) => (
+              {projects.length > 0 ? projects.map((p) => (
                 <div
                   key={p.name}
                   className="flex items-center justify-between p-3 rounded-lg bg-white/[0.02] border border-border"
@@ -211,14 +230,16 @@ export default function DashboardOverview() {
                   </div>
                   <span
                     className={cn(
-                      "text-[11px] font-semibold px-2.5 py-1 rounded-full",
-                      p.statusColor
+                      "text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize",
+                      statusColorMap[p.status] ?? "bg-white/10 text-text-muted"
                     )}
                   >
-                    {p.status}
+                    {p.status.replace("_", " ")}
                   </span>
                 </div>
-              ))}
+              )) : (
+                <p className="text-sm text-text-muted">No projects yet. Start building!</p>
+              )}
             </div>
           </Card>
         </div>
@@ -231,19 +252,25 @@ export default function DashboardOverview() {
               Activity Feed
             </h3>
             <div className="space-y-3">
-              {activityFeed.map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <item.icon
-                    className={cn("h-4 w-4 mt-0.5 shrink-0", item.color)}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-text-primary leading-snug">
-                      {item.text}
-                    </p>
-                    <p className="text-xs text-text-muted mt-0.5">{item.time}</p>
+              {activityFeed.length > 0 ? activityFeed.map((item, i) => {
+                const IconComp = activityIcons[item.code] ?? activityIcons.default;
+                const iconColor = activityColors[item.code] ?? activityColors.default;
+                return (
+                  <div key={i} className="flex items-start gap-3">
+                    <IconComp className={cn("h-4 w-4 mt-0.5 shrink-0", iconColor)} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-text-primary leading-snug">
+                        {item.text} (+{item.points} pts)
+                      </p>
+                      <p className="text-xs text-text-muted mt-0.5">
+                        {formatRelativeDate(item.time)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              }) : (
+                <p className="text-sm text-text-muted">No activity yet.</p>
+              )}
             </div>
           </Card>
 
@@ -253,7 +280,7 @@ export default function DashboardOverview() {
               Mini Leaderboard
             </h3>
             <div className="space-y-2.5">
-              {leaderboard.map((entry) => (
+              {leaderboard.length > 0 ? leaderboard.map((entry) => (
                 <div
                   key={entry.rank}
                   className={cn(
@@ -290,36 +317,50 @@ export default function DashboardOverview() {
                     {entry.points.toLocaleString()} pts
                   </span>
                 </div>
-              ))}
+              )) : (
+                <p className="text-sm text-text-muted">No leaderboard data yet.</p>
+              )}
             </div>
           </Card>
 
           {/* Next Session */}
-          <Card delay={0.25} className="p-5">
-            <h3 className="font-heading font-bold text-base text-text-primary mb-3">
-              Next Session
-            </h3>
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-text-primary">
-                {nextSession.title}
-              </p>
-              <div className="flex items-center gap-2 text-xs text-text-muted">
-                <Clock className="h-3.5 w-3.5" />
-                <span>{nextSession.date}</span>
+          {nextSession && (
+            <Card delay={0.25} className="p-5">
+              <h3 className="font-heading font-bold text-base text-text-primary mb-3">
+                Next Session
+              </h3>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-text-primary">
+                  {nextSession.title}
+                </p>
+                <div className="flex items-center gap-2 text-xs text-text-muted">
+                  <Clock className="h-3.5 w-3.5" />
+                  <span>
+                    {new Date(nextSession.date).toLocaleDateString("en-IN", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                    })}{" "}
+                    ·{" "}
+                    {new Date(nextSession.date).toLocaleTimeString("en-IN", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                </div>
               </div>
-              <p className="text-xs text-text-muted">
-                Mentor: {nextSession.mentor}
-              </p>
-            </div>
-            <a
-              href="#"
-              className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-amber hover:bg-amber-hover text-background font-semibold text-sm rounded-lg px-4 py-2.5 transition-colors"
-            >
-              <Video className="h-4 w-4" />
-              Join Google Meet
-              <ArrowUpRight className="h-3.5 w-3.5" />
-            </a>
-          </Card>
+              <a
+                href={nextSession.link ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 bg-amber hover:bg-amber-hover text-background font-semibold text-sm rounded-lg px-4 py-2.5 transition-colors"
+              >
+                <Video className="h-4 w-4" />
+                Join Google Meet
+                <ArrowUpRight className="h-3.5 w-3.5" />
+              </a>
+            </Card>
+          )}
         </div>
       </div>
     </div>

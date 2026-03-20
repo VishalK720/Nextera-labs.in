@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Settings,
@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/Card";
+import { useAuth } from "@/lib/auth-context";
+import { showToast } from "@/components/ui/Toast";
 
 type Tab = "profile" | "notifications" | "account";
 
@@ -22,15 +24,17 @@ const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: st
 ];
 
 export default function SettingsPage() {
+  const { user, profile, refreshProfile } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>("profile");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Profile state
-  const [name, setName] = useState("Arjun Mehta");
-  const [bio, setBio] = useState("Curious builder exploring the intersection of AI and education.");
-  const [city, setCity] = useState("Delhi");
-  const [school, setSchool] = useState("Delhi Public School");
-  const [classYear, setClassYear] = useState("11");
+  // Profile state - initialize from profile
+  const [name, setName] = useState("");
+  const [bio, setBio] = useState("");
+  const [city, setCity] = useState("");
+  const [school, setSchool] = useState("");
+  const [classYear, setClassYear] = useState("");
   const [github, setGithub] = useState("");
   const [linkedin, setLinkedin] = useState("");
 
@@ -41,9 +45,51 @@ export default function SettingsPage() {
   const [pushLiveSession, setPushLiveSession] = useState(true);
   const [pushLeaderboard, setPushLeaderboard] = useState(false);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  useEffect(() => {
+    if (profile) {
+      setName(profile.full_name ?? "");
+      setBio(profile.about_self ?? "");
+      setCity(profile.city ?? "");
+      setSchool(profile.school ?? "");
+      setClassYear(profile.class ?? "");
+      setGithub(profile.github_url ?? "");
+      setLinkedin(profile.linkedin_url ?? "");
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    if (!user?.id) return;
+    setSaving(true);
+
+    try {
+      const res = await fetch("/api/dashboard/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: user.id,
+          full_name: name,
+          city,
+          school,
+          class: classYear,
+          about_self: bio,
+          github_url: github,
+          linkedin_url: linkedin,
+        }),
+      });
+
+      if (res.ok) {
+        setSaved(true);
+        showToast("Settings saved!", "success");
+        await refreshProfile();
+        setTimeout(() => setSaved(false), 2000);
+      } else {
+        showToast("Failed to save settings", "error");
+      }
+    } catch {
+      showToast("Failed to save settings", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -151,7 +197,7 @@ export default function SettingsPage() {
               <label className="text-sm font-medium text-text-primary">Email</label>
               <input
                 type="email"
-                value="arjun.mehta@example.com"
+                value={profile?.email ?? user?.email ?? ""}
                 disabled
                 className="w-full bg-white/[0.02] border border-border rounded-lg px-3 py-2.5 text-sm text-text-muted cursor-not-allowed"
               />
@@ -161,7 +207,7 @@ export default function SettingsPage() {
               <label className="text-sm font-medium text-text-primary">Cohort</label>
               <input
                 type="text"
-                value="Cohort 1 — Jan 2025"
+                value={profile?.cohort_id ? `Cohort ${profile.cohort_id}` : "Not assigned"}
                 disabled
                 className="w-full bg-white/[0.02] border border-border rounded-lg px-3 py-2.5 text-sm text-text-muted cursor-not-allowed"
               />
@@ -184,6 +230,7 @@ export default function SettingsPage() {
       <div className="flex justify-end">
         <button
           onClick={handleSave}
+          disabled={saving}
           className={cn(
             "inline-flex items-center gap-2 font-semibold text-sm rounded-lg px-6 py-2.5 transition-all",
             saved
@@ -195,6 +242,11 @@ export default function SettingsPage() {
             <>
               <Check className="h-4 w-4" />
               Saved!
+            </>
+          ) : saving ? (
+            <>
+              <span className="h-4 w-4 border-2 border-background/30 border-t-background rounded-full animate-spin" />
+              Saving...
             </>
           ) : (
             <>

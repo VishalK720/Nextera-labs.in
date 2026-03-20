@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
   Menu,
 } from "lucide-react";
 import { cn, getInitials } from "@/lib/utils";
+import { AuthProvider, useAuth } from "@/lib/auth-context";
 
 const mainNav = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
@@ -42,11 +43,6 @@ const pageTitles: Record<string, string> = {
   "/dashboard/cohort": "My Cohort",
   "/dashboard/resources": "Resources",
   "/dashboard/settings": "Settings",
-};
-
-const mockUser = {
-  name: "Arjun Mehta",
-  subtitle: "Class 12 · Delhi",
 };
 
 function NavLink({
@@ -88,9 +84,21 @@ function NavLink({
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { profile, signOut } = useAuth();
+  const router = useRouter();
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+
+  const handleLogout = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
+  const userName = profile?.full_name ?? "Student";
+  const userSubtitle = profile
+    ? `${profile.class ? `Class ${profile.class}` : ""} ${profile.city ? `· ${profile.city}` : ""}`.trim()
+    : "";
 
   return (
     <div className="flex flex-col h-full">
@@ -137,15 +145,16 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="p-4">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-indigo/20 text-indigo flex items-center justify-center text-xs font-bold shrink-0">
-            {getInitials(mockUser.name)}
+            {getInitials(userName)}
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-text-primary truncate">
-              {mockUser.name}
+              {userName}
             </p>
-            <p className="text-xs text-text-muted truncate">{mockUser.subtitle}</p>
+            <p className="text-xs text-text-muted truncate">{userSubtitle}</p>
           </div>
           <button
+            onClick={handleLogout}
             className="p-1.5 rounded-lg text-text-muted hover:text-danger hover:bg-danger/10 transition-colors"
             aria-label="Logout"
           >
@@ -157,13 +166,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export default function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DashboardShell({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const pathname = usePathname();
+  const { profile, loading, user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/login");
+    }
+  }, [loading, user, router]);
 
   const pageTitle =
     pageTitles[pathname] ??
@@ -171,6 +184,16 @@ export default function DashboardLayout({
       ([key]) => pathname.startsWith(key) && key !== "/dashboard"
     )?.[1] ??
     "Dashboard";
+
+  const userName = profile?.full_name ?? "Student";
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-8 w-8 border-2 border-amber/30 border-t-amber rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -222,12 +245,9 @@ export default function DashboardLayout({
         <div className="flex items-center gap-3">
           <button className="relative p-2 rounded-lg text-text-muted hover:text-text-primary hover:bg-white/5 transition-colors">
             <Bell className="h-5 w-5" />
-            <span className="absolute top-1 right-1 h-4 w-4 rounded-full bg-danger text-[10px] font-bold flex items-center justify-center text-white">
-              3
-            </span>
           </button>
           <div className="h-8 w-8 rounded-full bg-indigo/20 text-indigo flex items-center justify-center text-xs font-bold cursor-pointer">
-            {getInitials(mockUser.name)}
+            {getInitials(userName)}
           </div>
         </div>
       </header>
@@ -237,5 +257,17 @@ export default function DashboardLayout({
         <div className="p-4 lg:p-6">{children}</div>
       </main>
     </div>
+  );
+}
+
+export default function DashboardLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <AuthProvider>
+      <DashboardShell>{children}</DashboardShell>
+    </AuthProvider>
   );
 }
