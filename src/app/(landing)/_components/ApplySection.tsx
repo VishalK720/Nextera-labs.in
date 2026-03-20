@@ -19,7 +19,7 @@ const step1Schema = z.object({
     .min(10, "Enter a valid phone number")
     .max(15, "Enter a valid phone number"),
   classLevel: z.enum(["11", "12"], {
-    required_error: "Select your class",
+    message: "Select your class",
   }),
   city: z.string().min(2, "City is required"),
   school: z.string().min(2, "School name is required"),
@@ -55,7 +55,7 @@ const fadeSlide = {
   initial: { opacity: 0, x: 20 },
   animate: { opacity: 1, x: 0 },
   exit: { opacity: 0, x: -20 },
-  transition: { duration: 0.3, ease: "easeInOut" },
+  transition: { duration: 0.3, ease: "easeInOut" as const },
 };
 
 /* ---------- component ---------- */

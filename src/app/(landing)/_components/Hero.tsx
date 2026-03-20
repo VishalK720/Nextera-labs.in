@@ -28,7 +28,7 @@ const wordVariants = {
     opacity: 1,
     y: 0,
     filter: "blur(0px)",
-    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { duration: 0.5, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   },
 };
 
@@ -37,7 +37,7 @@ const fadeUp = {
   visible: (i: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: 0.7 + i * 0.12, duration: 0.5, ease: "easeOut" },
+    transition: { delay: 0.7 + i * 0.12, duration: 0.5, ease: "easeOut" as const },
   }),
 };
 
@@ -47,7 +47,7 @@ const cardFadeIn = {
     opacity: 1,
     scale: 1,
     x: 0,
-    transition: { delay: 0.6, duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] },
+    transition: { delay: 0.6, duration: 0.7, ease: [0.25, 0.46, 0.45, 0.94] as [number, number, number, number] },
   },
 };
 

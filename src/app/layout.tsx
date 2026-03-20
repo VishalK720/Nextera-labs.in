@@ -1,25 +1,9 @@
 import type { Metadata } from "next";
-import { Syne, DM_Sans, DM_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const syne = Syne({
-  variable: "--font-syne",
-  subsets: ["latin"],
-  weight: ["700", "800"],
-});
-
-const dmSans = DM_Sans({
-  variable: "--font-dm-sans",
-  subsets: ["latin"],
-  weight: ["300", "400", "500"],
-});
-
-const dmMono = DM_Mono({
-  variable: "--font-dm-mono",
-  subsets: ["latin"],
-  weight: ["400", "500"],
-});
+/* Google Fonts loaded via <link> in <head> to avoid build-time fetch issues.
+   CSS variables are set on the body via style below. */
 
 export const metadata: Metadata = {
   title: "Nextera Labs — Build AI. Not Just Learn It.",
@@ -55,11 +39,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${syne.variable} ${dmSans.variable} ${dmMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-background text-text-primary">
+    <html lang="en" className="h-full antialiased">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Syne:wght@700;800&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body
+        className="min-h-full flex flex-col bg-background text-text-primary"
+        style={{
+          ["--font-syne" as string]: "'Syne', system-ui, sans-serif",
+          ["--font-dm-sans" as string]: "'DM Sans', system-ui, sans-serif",
+          ["--font-dm-mono" as string]: "'DM Mono', monospace",
+        }}
+      >
         {children}
         <Toaster
           theme="dark"
