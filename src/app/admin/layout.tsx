@@ -10,6 +10,7 @@ import {
   Users,
   Video,
   BookOpen,
+  Target,
   LogOut,
   Menu,
   X,
@@ -24,6 +25,7 @@ const navLinks = [
   { icon: Users, label: "Students", href: "/admin/students" },
   { icon: Video, label: "Meet Sessions", href: "/admin/meet-sessions" },
   { icon: BookOpen, label: "Cohorts", href: "/admin/cohorts" },
+  { icon: Target, label: "Lead Gen", href: "/admin/leads" },
 ];
 
 function Sidebar({ onClose }: { onClose?: () => void }) {
