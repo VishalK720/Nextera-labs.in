@@ -1,36 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import apifyClient, {
   LEAD_GEN_CONFIG,
   APIFY_ACTORS,
   type Lead,
 } from "@/lib/apify";
 
-async function verifyAdmin() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) return null;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!profile || !["founder", "admin"].includes(profile.role)) return null;
-  return { user, supabase };
-}
-
 // GET: Fetch stored leads
 export async function GET(request: NextRequest) {
   try {
-    const auth = await verifyAdmin();
-    if (!auth)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const supabase = createAdminClient();
 
     const { searchParams } = new URL(request.url);
     const region = searchParams.get("region");
@@ -38,7 +17,7 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "50");
 
-    let query = auth.supabase
+    let query = supabase
       .from("leads")
       .select("*", { count: "exact" })
       .order("collected_at", { ascending: false })
@@ -70,9 +49,7 @@ export async function GET(request: NextRequest) {
 // POST: Trigger a new lead generation run
 export async function POST(request: NextRequest) {
   try {
-    const auth = await verifyAdmin();
-    if (!auth)
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const supabase = createAdminClient();
 
     const body = await request.json();
     const { type } = body as { type: "google_maps" | "google_search" | "contact_info" };
@@ -87,7 +64,6 @@ export async function POST(request: NextRequest) {
     let runResult;
 
     if (type === "google_maps") {
-      // Scrape Google Maps for schools, coaching centers, etc.
       const run = await apifyClient
         .actor(APIFY_ACTORS.GOOGLE_MAPS_SCRAPER)
         .call({
@@ -116,9 +92,8 @@ export async function POST(request: NextRequest) {
         collectedAt: new Date().toISOString(),
       }));
 
-      // Store leads in Supabase
       if (leads.length > 0) {
-        const { error: insertError } = await auth.supabase
+        const { error: insertError } = await supabase
           .from("leads")
           .upsert(
             leads.map((l) => ({
@@ -147,7 +122,6 @@ export async function POST(request: NextRequest) {
         type: "google_maps",
       };
     } else if (type === "google_search") {
-      // Scrape Google Search for parent communities, school directories
       const run = await apifyClient
         .actor(APIFY_ACTORS.GOOGLE_SEARCH_SCRAPER)
         .call({
@@ -174,7 +148,7 @@ export async function POST(request: NextRequest) {
       }));
 
       if (leads.length > 0) {
-        const { error: insertError } = await auth.supabase
+        const { error: insertError } = await supabase
           .from("leads")
           .upsert(
             leads.map((l) => ({
@@ -202,8 +176,7 @@ export async function POST(request: NextRequest) {
         type: "google_search",
       };
     } else if (type === "contact_info") {
-      // Extract contact info from websites already collected
-      const { data: existingLeads } = await auth.supabase
+      const { data: existingLeads } = await supabase
         .from("leads")
         .select("id, website")
         .not("website", "is", null)
@@ -233,7 +206,6 @@ export async function POST(request: NextRequest) {
         .dataset(run.defaultDatasetId)
         .listItems();
 
-      // Update existing leads with contact info
       let enrichedCount = 0;
       for (const item of items) {
         const typedItem = item as Record<string, unknown>;
@@ -244,7 +216,7 @@ export async function POST(request: NextRequest) {
         if (matchingLead) {
           const emails = typedItem.emails as string[] | undefined;
           const phones = typedItem.phones as string[] | undefined;
-          await auth.supabase
+          await supabase
             .from("leads")
             .update({
               email: emails?.[0] || undefined,

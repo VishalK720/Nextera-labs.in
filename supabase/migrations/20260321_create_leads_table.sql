@@ -18,36 +18,3 @@ CREATE TABLE IF NOT EXISTS leads (
 CREATE INDEX IF NOT EXISTS idx_leads_region ON leads(region);
 CREATE INDEX IF NOT EXISTS idx_leads_source ON leads(source);
 CREATE INDEX IF NOT EXISTS idx_leads_collected_at ON leads(collected_at DESC);
-
--- RLS: only admin/founder can access
-ALTER TABLE leads ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Admin can read leads" ON leads
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('admin', 'founder')
-    )
-  );
-
-CREATE POLICY "Admin can insert leads" ON leads
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('admin', 'founder')
-    )
-  );
-
-CREATE POLICY "Admin can update leads" ON leads
-  FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-      AND profiles.role IN ('admin', 'founder')
-    )
-  );
