@@ -10,6 +10,7 @@ import {
   Users,
   Video,
   BookOpen,
+  Phone,
   LogOut,
   Menu,
   X,
@@ -22,6 +23,7 @@ const navLinks = [
   { icon: LayoutDashboard, label: "Overview", href: "/admin" },
   { icon: FileText, label: "Applications", href: "/admin/applications" },
   { icon: Users, label: "Students", href: "/admin/students" },
+  { icon: Phone, label: "Cold Calls", href: "/admin/cold-call" },
   { icon: Video, label: "Meet Sessions", href: "/admin/meet-sessions" },
   { icon: BookOpen, label: "Cohorts", href: "/admin/cohorts" },
 ];
