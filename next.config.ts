@@ -6,6 +6,7 @@ const nextConfig: NextConfig = {
     // that reject valid string literals like "easeOut" — safe to skip
     ignoreBuildErrors: true,
   },
+  serverExternalPackages: ["apify-client"],
 };
 
 export default nextConfig;
