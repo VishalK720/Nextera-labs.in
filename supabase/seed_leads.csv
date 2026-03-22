@@ -1,0 +1,6 @@
+id,name,source,phone,email,website,address,category,rating,query,region,collected_at
+lead_001,Sharma Digital Solutions,google_maps,+91-9876543210,info@sharmadigital.in,https://sharmadigital.in,"Plot 12, Sector 18, Noida",Digital Marketing Agency,4.5,digital marketing agency noida,Delhi NCR,2026-03-22T10:00:00+05:30
+lead_002,TechVista Innovations,google_maps,+91-9988776655,hello@techvista.co,https://techvista.co,"MG Road, Bengaluru",Software Company,4.2,software company bangalore,Bangalore,2026-03-22T10:05:00+05:30
+lead_003,Starter Labs,google_search,+91-8877665544,contact@starterlabs.com,https://starterlabs.com,"Baner Road, Pune",Web Development,4.8,web development company pune,Pune,2026-03-22T10:10:00+05:30
+lead_004,CloudNine IT Services,google_maps,+91-7766554433,sales@cloudnineit.in,https://cloudnineit.in,"Hitec City, Hyderabad",IT Services,3.9,IT services hyderabad,Hyderabad,2026-03-22T10:15:00+05:30
+lead_005,PixelCraft Studio,google_search,+91-6655443322,hey@pixelcraft.studio,https://pixelcraft.studio,"Andheri West, Mumbai",UI/UX Design,4.7,ui ux design agency mumbai,Mumbai,2026-03-22T10:20:00+05:30
